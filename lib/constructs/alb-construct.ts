@@ -52,7 +52,7 @@ export class AlbConstruct extends Construct {
       defaultTargetGroups: [this.targetGroup],
     });
 
-    new cdk.CfnOutput(scope, 'AlbDnsName', {
+    new cdk.CfnOutput(this, 'AlbDnsName', {
       value: this.alb.loadBalancerDnsName,
       description: 'ALB の DNS 名（ブラウザでアクセス可能）',
     });

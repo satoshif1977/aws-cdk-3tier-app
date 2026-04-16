@@ -9,6 +9,8 @@ interface RdsConstructProps {
 }
 
 export class RdsConstruct extends Construct {
+  public readonly dbInstance: rds.DatabaseInstance;
+
   constructor(scope: Construct, id: string, props: RdsConstructProps) {
     super(scope, id);
 
@@ -28,7 +30,7 @@ export class RdsConstruct extends Construct {
     });
 
     // RDS MySQL 8.0
-    const db = new rds.DatabaseInstance(this, 'Instance', {
+    this.dbInstance = new rds.DatabaseInstance(this, 'Instance', {
       instanceIdentifier: 'cdk-3tier-db',
       engine: rds.DatabaseInstanceEngine.mysql({
         version: rds.MysqlEngineVersion.VER_8_0,
@@ -48,7 +50,7 @@ export class RdsConstruct extends Construct {
       }),
     });
 
-    new cdk.CfnOutput(scope, 'DbEndpoint', { value: db.dbInstanceEndpointAddress });
-    new cdk.CfnOutput(scope, 'DbSecretArn', { value: db.secret?.secretArn ?? 'N/A' });
+    new cdk.CfnOutput(this, 'DbEndpoint', { value: this.dbInstance.dbInstanceEndpointAddress });
+    new cdk.CfnOutput(this, 'DbSecretArn', { value: this.dbInstance.secret?.secretArn ?? 'N/A' });
   }
 }

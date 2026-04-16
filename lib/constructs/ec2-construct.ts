@@ -13,6 +13,7 @@ interface Ec2ConstructProps {
 
 export class Ec2Construct extends Construct {
   public readonly ec2Sg: ec2.SecurityGroup;
+  public readonly instance: ec2.Instance;
 
   constructor(scope: Construct, id: string, props: Ec2ConstructProps) {
     super(scope, id);
@@ -45,7 +46,7 @@ export class Ec2Construct extends Construct {
     );
 
     // EC2 インスタンス（プライベートサブネット配置）
-    const instance = new ec2.Instance(this, 'Instance', {
+    this.instance = new ec2.Instance(this, 'Instance', {
       instanceName: 'cdk-3tier-web',
       vpc: props.vpc,
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
@@ -57,8 +58,8 @@ export class Ec2Construct extends Construct {
     });
 
     // ALB ターゲットグループに EC2 を登録
-    props.targetGroup.addTarget(new elbv2_targets.InstanceTarget(instance));
+    props.targetGroup.addTarget(new elbv2_targets.InstanceTarget(this.instance));
 
-    new cdk.CfnOutput(scope, 'InstanceId', { value: instance.instanceId });
+    new cdk.CfnOutput(this, 'InstanceId', { value: this.instance.instanceId });
   }
 }

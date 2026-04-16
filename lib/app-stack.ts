@@ -4,6 +4,7 @@ import { VpcConstruct } from './constructs/vpc-construct';
 import { AlbConstruct } from './constructs/alb-construct';
 import { Ec2Construct } from './constructs/ec2-construct';
 import { RdsConstruct } from './constructs/rds-construct';
+import { MonitoringConstruct } from './constructs/monitoring-construct';
 
 /**
  * 3層 Web アーキテクチャ スタック
@@ -36,9 +37,17 @@ export class AppStack extends cdk.Stack {
     });
 
     // 4. データ層（RDS）
-    new RdsConstruct(this, 'Database', {
+    const database = new RdsConstruct(this, 'Database', {
       vpc: network.vpc,
       ec2Sg: webServer.ec2Sg,
+    });
+
+    // 5. 監視層（CloudWatch Alarms + Dashboard）
+    new MonitoringConstruct(this, 'Monitoring', {
+      alb: alb.alb,
+      targetGroup: alb.targetGroup,
+      instance: webServer.instance,
+      dbInstance: database.dbInstance,
     });
 
     cdk.Tags.of(this).add('Project', 'cdk-3tier-app');

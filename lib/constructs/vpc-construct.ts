@@ -32,6 +32,6 @@ export class VpcConstruct extends Construct {
       ],
     });
 
-    new cdk.CfnOutput(scope, 'VpcId', { value: this.vpc.vpcId });
+    new cdk.CfnOutput(this, 'VpcId', { value: this.vpc.vpcId });
   }
 }
