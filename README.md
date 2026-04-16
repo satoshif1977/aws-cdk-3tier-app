@@ -1,6 +1,7 @@
 # aws-cdk-3tier-app
 
 ![CDK](https://img.shields.io/badge/AWS_CDK-TypeScript-blue?logo=amazon-aws)
+![CI](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/cdk-synth.yml/badge.svg)
 ![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-orange?logo=anthropic)
 
 AWS CDK（TypeScript）で VPC / ALB / EC2 / RDS の **3層 Web アーキテクチャ**を実装したポートフォリオ。
@@ -18,6 +19,7 @@ Terraform 版（[terraform-3tier-webapp](https://github.com/satoshif1977/terrafo
 | **アプリ層** | EC2 (t3.micro) | Amazon Linux 2023 / Apache / Private Subnet |
 | **データ層** | RDS MySQL 8.0 (t3.micro) | Isolated Subnet / Secrets Manager 認証 |
 | **ネットワーク** | VPC (10.0.0.0/16) | Public / Private / Isolated × 2AZ / NAT GW × 1 |
+| **監視層** | CloudWatch | Alarms × 5 + Dashboard |
 
 ---
 
@@ -28,11 +30,12 @@ Terraform の `modules/` に相当する **CDK Construct** として各レイヤ
 ```
 lib/
 ├── constructs/
-│   ├── vpc-construct.ts   # VPC・3層サブネット・NAT Gateway
-│   ├── alb-construct.ts   # ALB・セキュリティグループ・リスナー
-│   ├── ec2-construct.ts   # EC2・IAM ロール・UserData（Apache）
-│   └── rds-construct.ts   # RDS MySQL・セキュリティグループ・Secrets Manager
-└── app-stack.ts           # 各 Construct を統合（Terraform の main.tf 相当）
+│   ├── vpc-construct.ts          # VPC・3層サブネット・NAT Gateway
+│   ├── alb-construct.ts          # ALB・セキュリティグループ・リスナー
+│   ├── ec2-construct.ts          # EC2・IAM ロール・UserData（Apache）
+│   ├── rds-construct.ts          # RDS MySQL・セキュリティグループ・Secrets Manager
+│   └── monitoring-construct.ts   # CloudWatch Alarms・Dashboard
+└── app-stack.ts                  # 各 Construct を統合（Terraform の main.tf 相当）
 ```
 
 | Terraform | CDK |
@@ -41,6 +44,7 @@ lib/
 | `modules/alb/` | `lib/constructs/alb-construct.ts` |
 | `modules/ec2/` | `lib/constructs/ec2-construct.ts` |
 | `modules/rds/` | `lib/constructs/rds-construct.ts` |
+| ※ Terraform 版は別リポジトリ参照 | `lib/constructs/monitoring-construct.ts` |
 | `environments/dev/main.tf` | `lib/app-stack.ts` |
 
 ---
@@ -54,6 +58,31 @@ lib/
 | EC2 ログイン | キーペアなし・SSM Session Manager 経由（IAM 認証） |
 | DB パスワード | Secrets Manager で自動生成・管理 |
 | ストレージ暗号化 | RDS 暗号化有効 |
+
+---
+
+## 監視設計（CloudWatch）
+
+`monitoring-construct.ts` で 3 層すべてを監視。アラームは CloudWatch ダッシュボードで一元管理。
+
+| アラーム名 | 対象 | 閾値 | 説明 |
+|---|---|---|---|
+| `cdk-3tier-alb-5xx-rate` | ALB | エラー率 5% | サーバーエラーの急増を検知 |
+| `cdk-3tier-alb-unhealthy-hosts` | ALB ターゲット | 1台以上 | EC2 のヘルスチェック失敗を即検知 |
+| `cdk-3tier-ec2-cpu-high` | EC2 | CPU 80% | 高負荷状態を検知 |
+| `cdk-3tier-rds-cpu-high` | RDS | CPU 80% | DB 高負荷状態を検知 |
+| `cdk-3tier-rds-free-storage-low` | RDS | 空き 2GB | ストレージ枯渇を事前検知 |
+
+---
+
+## 動作確認スクリーンショット
+
+| # | 内容 | スクリーンショット |
+|---|---|---|
+| 1 | ALB DNS でブラウザアクセス → Hello from CDK 3-Tier App | ![ALB Access](docs/screenshots/01_alb-browser-access.png) |
+| 2 | CloudFormation → CdkAppStack: CREATE_COMPLETE | ![CloudFormation](docs/screenshots/02_cloudformation-create-complete.png) |
+| 3 | EC2 インスタンス詳細（プライベートサブネット配置） | ![EC2](docs/screenshots/03_ec2-instance-detail.png) |
+| 4 | RDS インスタンス詳細（cdk-3tier-db / MySQL 8.0） | ![RDS](docs/screenshots/04_rds-instance-detail.png) |
 
 ---
 
@@ -88,17 +117,6 @@ aws-vault exec personal-dev-source -- cdk deploy
 # 6. リソース削除
 aws-vault exec personal-dev-source -- cdk destroy
 ```
-
----
-
-## 動作確認スクリーンショット
-
-| # | 内容 | スクリーンショット |
-|---|---|---|
-| 1 | ALB DNS でブラウザアクセス → Hello from CDK 3-Tier App | ![ALB Access](docs/screenshots/01_alb-browser-access.png) |
-| 2 | CloudFormation → CdkAppStack: CREATE_COMPLETE | ![CloudFormation](docs/screenshots/02_cloudformation-create-complete.png) |
-| 3 | EC2 インスタンス詳細（プライベートサブネット配置） | ![EC2](docs/screenshots/03_ec2-instance-detail.png) |
-| 4 | RDS インスタンス詳細（cdk-3tier-db / MySQL 8.0） | ![RDS](docs/screenshots/04_rds-instance-detail.png) |
 
 ---
 
