@@ -91,6 +91,17 @@ aws-vault exec personal-dev-source -- cdk destroy
 
 ---
 
+## 動作確認スクリーンショット
+
+| # | 内容 | スクリーンショット |
+|---|---|---|
+| 1 | ALB DNS でブラウザアクセス → Hello from CDK 3-Tier App | ![ALB Access](docs/screenshots/01_alb-browser-access.png) |
+| 2 | CloudFormation → CdkAppStack: CREATE_COMPLETE | ![CloudFormation](docs/screenshots/02_cloudformation-create-complete.png) |
+| 3 | EC2 インスタンス詳細（プライベートサブネット配置） | ![EC2](docs/screenshots/03_ec2-instance-detail.png) |
+| 4 | RDS インスタンス詳細（cdk-3tier-db / MySQL 8.0） | ![RDS](docs/screenshots/04_rds-instance-detail.png) |
+
+---
+
 ## 学習ポイント（Terraform との比較）
 
 | 観点 | Terraform | CDK |
