@@ -1,14 +1,120 @@
-# Welcome to your CDK TypeScript project
+# aws-cdk-3tier-app
 
-This is a blank project for CDK development with TypeScript.
+![CDK](https://img.shields.io/badge/AWS_CDK-TypeScript-blue?logo=amazon-aws)
+![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-orange?logo=anthropic)
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+AWS CDK（TypeScript）で VPC / ALB / EC2 / RDS の **3層 Web アーキテクチャ**を実装したポートフォリオ。
+Terraform 版（[terraform-3tier-webapp](https://github.com/satoshif1977/terraform-3tier-webapp)）の CDK 移植版として、IaC ツールの比較・学習を目的に構築。
 
-## Useful commands
+---
 
-* `npm run build`   compile typescript to js
-* `npm run watch`   watch for changes and compile
-* `npm run test`    perform the jest unit tests
-* `npx cdk deploy`  deploy this stack to your default AWS account/region
-* `npx cdk diff`    compare deployed stack with current state
-* `npx cdk synth`   emits the synthesized CloudFormation template
+## アーキテクチャ
+
+![Architecture](docs/architecture.drawio.png)
+
+| レイヤー | コンポーネント | 内容 |
+|---|---|---|
+| **フロントエンド層** | ALB | Internet-facing / HTTP:80 / Multi-AZ（1a・1c） |
+| **アプリ層** | EC2 (t3.micro) | Amazon Linux 2023 / Apache / Private Subnet |
+| **データ層** | RDS MySQL 8.0 (t3.micro) | Isolated Subnet / Secrets Manager 認証 |
+| **ネットワーク** | VPC (10.0.0.0/16) | Public / Private / Isolated × 2AZ / NAT GW × 1 |
+
+---
+
+## CDK Construct 構成
+
+Terraform の `modules/` に相当する **CDK Construct** として各レイヤーを分割。
+
+```
+lib/
+├── constructs/
+│   ├── vpc-construct.ts   # VPC・3層サブネット・NAT Gateway
+│   ├── alb-construct.ts   # ALB・セキュリティグループ・リスナー
+│   ├── ec2-construct.ts   # EC2・IAM ロール・UserData（Apache）
+│   └── rds-construct.ts   # RDS MySQL・セキュリティグループ・Secrets Manager
+└── app-stack.ts           # 各 Construct を統合（Terraform の main.tf 相当）
+```
+
+| Terraform | CDK |
+|---|---|
+| `modules/vpc/` | `lib/constructs/vpc-construct.ts` |
+| `modules/alb/` | `lib/constructs/alb-construct.ts` |
+| `modules/ec2/` | `lib/constructs/ec2-construct.ts` |
+| `modules/rds/` | `lib/constructs/rds-construct.ts` |
+| `environments/dev/main.tf` | `lib/app-stack.ts` |
+
+---
+
+## セキュリティ設計
+
+| 項目 | 設定 |
+|---|---|
+| EC2 へのアクセス | ALB セキュリティグループからの HTTP:80 のみ許可（直接公開なし） |
+| RDS へのアクセス | EC2 セキュリティグループからの MySQL:3306 のみ許可 |
+| EC2 ログイン | キーペアなし・SSM Session Manager 経由（IAM 認証） |
+| DB パスワード | Secrets Manager で自動生成・管理 |
+| ストレージ暗号化 | RDS 暗号化有効 |
+
+---
+
+## 前提条件
+
+```bash
+node --version   # v18 以上
+cdk --version    # 2.x 以上
+aws configure    # 認証情報設定済み
+```
+
+---
+
+## デプロイ手順
+
+```bash
+# 1. 依存パッケージのインストール
+npm install
+
+# 2. TypeScript ビルド
+npm run build
+
+# 3. CloudFormation テンプレート生成確認
+npx cdk synth
+
+# 4. CDK ブートストラップ（初回のみ）
+aws-vault exec personal-dev-source -- cdk bootstrap
+
+# 5. デプロイ
+aws-vault exec personal-dev-source -- cdk deploy
+
+# 6. リソース削除
+aws-vault exec personal-dev-source -- cdk destroy
+```
+
+---
+
+## 学習ポイント（Terraform との比較）
+
+| 観点 | Terraform | CDK |
+|---|---|---|
+| 言語 | HCL（独自DSL） | TypeScript（汎用言語）|
+| 再利用単位 | `module` | `Construct` |
+| 状態管理 | tfstate（S3 + DynamoDB） | CloudFormation スタック |
+| 型安全性 | なし | あり（IDE補完・コンパイルエラー）|
+| 依存解決 | 自動 | 自動（ただしクロススタック参照は注意）|
+| 循環依存 | エラーで検出 | cdk synth 時に検出 |
+
+> **設計上の気づき**: マルチスタック分割時にセキュリティグループの循環依存が発生。
+> Terraform の `modules/` = CDK の `Construct` というパターンを理解し、単一スタック＋ Construct 分割で解決。
+
+---
+
+## コスト目安（ap-northeast-1）
+
+| リソース | スペック | 月額目安 |
+|---|---|---|
+| EC2 | t3.micro | ~$8 |
+| RDS | db.t3.micro (Single-AZ) | ~$20 |
+| ALB | 1台 | ~$18 |
+| NAT Gateway | 1台 | ~$33 |
+| **合計** | | **~$79/月** |
+
+> 検証後は `cdk destroy` で即削除を推奨。
