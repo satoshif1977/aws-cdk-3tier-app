@@ -120,6 +120,32 @@ aws-vault exec personal-dev-source -- cdk destroy
 
 ---
 
+## ユニットテスト（CDK Assertions）
+
+`npm test` で CDK Assertions ライブラリを使ったユニットテストを実行できます。
+デプロイ不要・ローカルのみで全 18 項目を検証します。
+
+```bash
+npm test
+```
+
+```
+Test Suites: 1 passed, 1 total
+Tests:       18 passed, 18 total
+```
+
+| カテゴリ | テスト項目 |
+|---|---|
+| **VPC** | CIDR（10.0.0.0/16）/ サブネット 6 つ / NAT GW 1 つ / IGW 1 つ |
+| **ALB** | Internet-facing / HTTP:80 許可 / リスナー / ヘルスチェックパス |
+| **EC2** | t3.micro / SSMManagedInstanceCore ポリシー / HTTP:80 インバウンド |
+| **RDS** | MySQL 8.0 / ストレージ暗号化 / バックアップ 7 日 / db.t3.micro / MySQL:3306 インバウンド |
+| **タグ** | Project=cdk-3tier-app / ManagedBy=CDK |
+
+> CDK Assertions の `Template.fromStack()` と `Match` を使い、CloudFormation テンプレートの構造を型安全に検証。
+
+---
+
 ## 学習ポイント（Terraform との比較）
 
 | 観点 | Terraform | CDK |
