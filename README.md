@@ -168,6 +168,35 @@ Tests:       18 passed, 18 total
 
 ---
 
+## CI / 自動検証
+
+GitHub Actions で TypeScript ビルド・CDK 構成検証・ユニットテストを自動実行しています。
+
+| ジョブ | 内容 |
+|---|---|
+| TypeScript ビルド | 型チェック・コンパイルエラーの検出（`npm run build`） |
+| CDK list | スタック構成の確認（アカウント固有ルックアップなしで実行） |
+| ユニットテスト | CDK Assertions で 18 項目をローカル検証（`npm test`） |
+
+> CI は `CDK_DEFAULT_ACCOUNT: '123456789012'`（ダミー値）で動作。`cdk synth` はアカウント固有ルックアップが必要なため CI では `cdk list` で代替。
+
+---
+
+## 学習で気づいたこと・躓いたポイント
+
+### CDK 設計
+
+- **セキュリティグループの循環依存**: マルチスタック分割時に EC2 SG ↔ RDS SG が互いに参照し合い循環依存が発生。単一スタック＋ Construct 分割の構成に変更して解決。Terraform の `modules/` と同じ考え方で整理できた。
+- **`cdk synth` は通るが `cdk deploy` で失敗**: TypeScript レベルのエラーは synth で検出できるが、CloudFormation レベルのエラー（リソース上限・権限不足）は deploy 時に初めて分かる。plan 相当の確認が難しい点が Terraform との大きな違い。
+- **RDS を Isolated Subnet に配置**: Private Subnet（NAT GW 経由でアウトバウンド可）ではなく Isolated Subnet（完全閉域）に配置。EC2 → RDS の通信は SG で制御するため問題なし。Secrets Manager へのアクセスは VPC エンドポイント or NAT GW 経由が必要。
+
+### TypeScript × CDK
+
+- **IDE 補完が開発効率を大きく上げる**: HCL（Terraform）と違い、TypeScript は props の型が決まっているため補完が効く。入力ミスをコンパイル前に検出できる。
+- **CDK Assertions でテストが書ける**: `Template.fromStack()` で CloudFormation テンプレートを取得し、`hasResourceProperties` で設定値を検証。デプロイ不要でインフラのロジックをテストできる点が CDK の強み。
+
+---
+
 ## コスト目安（ap-northeast-1）
 
 | リソース | スペック | 月額目安 |
