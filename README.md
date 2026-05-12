@@ -172,6 +172,47 @@ Tests:       18 passed, 18 total
 
 ---
 
+## トラブルシューティング
+
+| 症状 | 原因 | 対処法 |
+|---|---|---|
+| `cdk deploy` で `ECRRepositoryNotFound` | `cdk bootstrap` 未実行 | `cdk bootstrap` を先に実行（アカウント×リージョンごとに1回のみ） |
+| `cdk synth` は通るが `cdk deploy` で失敗 | CloudFormation レベルのエラー（権限・上限） | CloudFormation コンソールでスタックのイベントを確認 |
+| セキュリティグループの循環依存エラー | マルチスタック間で SG が互いに参照 | 単一スタック＋ Construct 分割構成に変更（本実装の構成） |
+| EC2 に SSM で接続できない | IAM ロールが未設定 | `ec2-construct.ts` で `AmazonSSMManagedInstanceCore` が付与されているか確認 |
+| ALB が `503` を返す | EC2 の Apache 起動失敗 | SSM Session Manager で EC2 に接続し `/var/log/cloud-init-output.log` を確認 |
+
+---
+
+## ローカル開発・テスト方法
+
+### ユニットテスト（デプロイ不要・約 5 秒）
+
+```bash
+npm install
+npm test
+# CDK Assertions で 18 項目を検証
+```
+
+### TypeScript ビルド確認
+
+```bash
+npm run build
+# コンパイルエラーがないか確認
+```
+
+### CDK 構成確認（dry-run 相当）
+
+```bash
+# CloudFormation テンプレートを生成して確認（アカウント接続必要）
+aws-vault exec personal-dev-source -- npx cdk synth
+
+# CI と同じ方法（アカウント固有ルックアップなしで実行）
+npx cdk list
+```
+
+---
+
 ## CI / 自動検証
 
 GitHub Actions で TypeScript ビルド・CDK 構成検証・ユニットテストを自動実行しています。
