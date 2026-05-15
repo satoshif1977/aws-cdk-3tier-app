@@ -108,6 +108,23 @@ aws configure    # 認証情報設定済み
 
 ## デプロイ手順
 
+### 事前準備（アカウント ID の設定）
+
+`bin/aws-cdk-3tier-app.ts` が `CDK_DEFAULT_ACCOUNT` / `CDK_DEFAULT_REGION` 環境変数を参照しています。デプロイ前に AWS 認証情報を設定してください。
+
+```bash
+# AWS CLI プロファイルを使用する場合
+export AWS_PROFILE=your-profile
+export AWS_DEFAULT_REGION=ap-northeast-1
+
+# aws-vault を使用する場合（推奨）
+# aws-vault exec <profile> の中で cdk コマンドを実行
+```
+
+> `cdk bootstrap` は AWS アカウント × リージョンの組み合わせごとに**初回のみ**必要です。CDKToolkit スタックが作成されます。
+
+### デプロイコマンド
+
 ```bash
 # 1. 依存パッケージのインストール
 npm install
@@ -115,17 +132,28 @@ npm install
 # 2. TypeScript ビルド
 npm run build
 
-# 3. CloudFormation テンプレート生成確認
+# 3. CloudFormation テンプレート生成確認（AWS 不要・ローカルのみ）
 npx cdk synth
 
-# 4. CDK ブートストラップ（初回のみ）
+# 4. CDK ブートストラップ（アカウント×リージョン初回のみ）
 aws-vault exec personal-dev-source -- cdk bootstrap
 
-# 5. デプロイ
-aws-vault exec personal-dev-source -- cdk deploy
+# 5. デプロイ（alert_email は SNS 通知先メールアドレス）
+aws-vault exec personal-dev-source -- cdk deploy --context alert_email=your@email.com
 
 # 6. リソース削除
 aws-vault exec personal-dev-source -- cdk destroy
+```
+
+### スタック確認
+
+```bash
+# デプロイ前にスタック一覧を確認
+npx cdk list
+# → Cdk3TierStack
+
+# diff でデプロイ前後の差分を確認
+aws-vault exec personal-dev-source -- cdk diff
 ```
 
 ---
