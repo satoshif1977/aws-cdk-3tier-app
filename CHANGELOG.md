@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-05-27
+
+### Changed
+- TypeScript v5.9.3 → v6.0.3 へアップグレード
+- `tsconfig.json` に `types: ["node", "jest"]` を追加（TypeScript v6 のグローバル型解決変更に対応）
+- aws-cdk-lib v2.250.0 → v2.253.1
+- jest v30.3.0 → v30.4.2
+- @types/node v24.12.2 → v25.6.2
+
+### CI
+- actions/setup-node v4 → v6
+- actions/checkout v4 → v6
+- actions/github-script v7 → v9
+
 ## [1.2.0] - 2026-05-19
 
 ### Added
