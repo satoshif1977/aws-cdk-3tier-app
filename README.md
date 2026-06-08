@@ -222,6 +222,24 @@ npm test
 # CDK Assertions で 18 項目を検証
 ```
 
+### デプロイ後スタック検証（boto3）
+
+`scripts/verify_stack.py` を使うと、CDK デプロイ後に VPC・ALB・EC2・RDS リソースが正しく作成されているかを確認できます。
+
+```bash
+# 前提: pip install boto3
+python scripts/verify_stack.py --profile <プロファイル名> --region ap-northeast-1
+```
+
+| チェック項目 | 検証内容 |
+|---|---|
+| VPC | 名前・CIDR（10.0.0.0/16）・サブネット数・NAT GW 数 |
+| ALB | 存在確認・internet-facing・ターゲットグループ |
+| EC2 | インスタンス数・インスタンスタイプ（t3.micro） |
+| RDS | エンジン（MySQL 8.0）・暗号化・バックアップ保持期間（7日） |
+
+---
+
 ### TypeScript ビルド確認
 
 ```bash
