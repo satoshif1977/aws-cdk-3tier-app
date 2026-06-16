@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-06-16
+
+### Changed
+- aws-cdk v2.1124.1 → v2.1127.0
+- @types/node v25.6.2 → v25.9.3
+- ts-jest v29.4.9 → v29.4.11
+
+### CI
+- actions/checkout v4 → v6
+- actions/setup-node v4 → v6
+- CI/CD ブランチ指定を master → main に統一
+
+### Chore
+- デフォルトブランチを master → main に変更・master ブランチ削除
+
+
 ## [1.3.0] - 2026-05-27
 
 ### Changed

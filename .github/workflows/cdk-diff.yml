@@ -2,7 +2,7 @@ name: CDK Diff（PR コメント）
 
 on:
   pull_request:
-    branches: [master]
+    branches: [main]
 
 permissions:
   pull-requests: write
