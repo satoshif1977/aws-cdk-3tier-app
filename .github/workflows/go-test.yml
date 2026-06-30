@@ -1,0 +1,35 @@
+name: Go Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts_go/**"
+      - ".github/workflows/go-test.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts_go/**"
+      - ".github/workflows/go-test.yml"
+
+jobs:
+  go-test:
+    name: Go ユニットテスト
+    runs-on: ubuntu-latest
+    env:
+      AWS_DEFAULT_REGION: ap-northeast-1
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    defaults:
+      run:
+        working-directory: scripts_go
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: scripts_go/go.mod
+      - name: go mod download
+        run: go mod download
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test -v ./verify_stack/...
