@@ -224,7 +224,7 @@ npm test
 # CDK Assertions で 18 項目を検証
 ```
 
-### デプロイ後スタック検証（boto3）
+### デプロイ後スタック検証（Python）
 
 `scripts/verify_stack.py` を使うと、CDK デプロイ後に VPC・ALB・EC2・RDS リソースが正しく作成されているかを確認できます。
 
@@ -239,6 +239,19 @@ python scripts/verify_stack.py --profile <プロファイル名> --region ap-nor
 | ALB | 存在確認・internet-facing・ターゲットグループ |
 | EC2 | インスタンス数・インスタンスタイプ（t3.micro） |
 | RDS | エンジン（MySQL 8.0）・暗号化・バックアップ保持期間（7日） |
+
+### デプロイ後スタック検証（Go）
+
+`scripts_go/verify_stack/` に Go 版の検証ツールを並置しています（Python 版との実装比較用）。
+
+```bash
+cd scripts_go/verify_stack
+go test ./... -v
+# 31件 PASS（VPC/ALB/EC2/RDS 各検証関数を mockEC2/mockELB/mockRDS でテスト）
+
+# デプロイ後の実環境検証
+go run main.go --profile <プロファイル名> --region ap-northeast-1
+```
 
 ---
 
