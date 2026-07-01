@@ -19,7 +19,6 @@ from typing import Any
 
 import boto3
 
-
 # ── 定数 ──────────────────────────────────────────────────────────
 
 VPC_NAME = "cdk-3tier-vpc"
@@ -95,7 +94,9 @@ def verify_vpc(ec2_client: Any) -> str | None:
     if nat_count == EXPECTED_NAT_GW_COUNT:
         ok(f"NAT ゲートウェイ数正常: {nat_count}件")
     else:
-        ng(f"NAT ゲートウェイ数が想定外: {nat_count}件（期待: {EXPECTED_NAT_GW_COUNT}件）")
+        ng(
+            f"NAT ゲートウェイ数が想定外: {nat_count}件（期待: {EXPECTED_NAT_GW_COUNT}件）"
+        )
 
     return vpc_id
 
@@ -187,7 +188,9 @@ def verify_rds(rds_client: Any) -> None:
     if engine == DB_ENGINE and version.startswith(DB_VERSION_PREFIX):
         ok(f"エンジン正常: {engine} {version}")
     else:
-        ng(f"エンジンが想定外: {engine} {version} (期待: {DB_ENGINE} {DB_VERSION_PREFIX}.x)")
+        ng(
+            f"エンジンが想定外: {engine} {version} (期待: {DB_ENGINE} {DB_VERSION_PREFIX}.x)"
+        )
 
     if instance.get("StorageEncrypted"):
         ok("ストレージ暗号化: 有効")
@@ -196,9 +199,13 @@ def verify_rds(rds_client: Any) -> None:
 
     backup_retention = instance.get("BackupRetentionPeriod", 0)
     if backup_retention >= EXPECTED_BACKUP_RETENTION:
-        ok(f"バックアップ保持期間: {backup_retention}日（期待: {EXPECTED_BACKUP_RETENTION}日以上）")
+        ok(
+            f"バックアップ保持期間: {backup_retention}日（期待: {EXPECTED_BACKUP_RETENTION}日以上）"
+        )
     else:
-        ng(f"バックアップ保持期間不足: {backup_retention}日（期待: {EXPECTED_BACKUP_RETENTION}日以上）")
+        ng(
+            f"バックアップ保持期間不足: {backup_retention}日（期待: {EXPECTED_BACKUP_RETENTION}日以上）"
+        )
 
     iclass = instance["DBInstanceClass"]
     ok(f"インスタンスクラス: {iclass}")
@@ -213,7 +220,7 @@ def main() -> None:
     parser.add_argument("--region", default="ap-northeast-1", help="AWS リージョン")
     args = parser.parse_args()
 
-    print(f"\naws-cdk-3tier-app スタック検証")
+    print("\naws-cdk-3tier-app スタック検証")
     print(f"リージョン: {args.region}")
     print(f"プロファイル: {args.profile or 'デフォルト'}")
 

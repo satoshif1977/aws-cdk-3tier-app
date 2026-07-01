@@ -26,7 +26,6 @@ from verify_stack import (
     verify_vpc,
 )
 
-
 # ── フィクスチャ ───────────────────────────────────────────────────
 
 
@@ -106,7 +105,9 @@ class TestVerifyVpc:
     def test_サブネット数が期待値以上の場合は正常(self, ec2_client: MagicMock) -> None:
         ec2_client.describe_vpcs.return_value = {"Vpcs": [_make_vpc()]}
         ec2_client.describe_subnets.return_value = {
-            "Subnets": [_make_subnet(f"sn-{i}") for i in range(EXPECTED_SUBNET_COUNT + 2)]
+            "Subnets": [
+                _make_subnet(f"sn-{i}") for i in range(EXPECTED_SUBNET_COUNT + 2)
+            ]
         }
         ec2_client.describe_nat_gateways.return_value = {
             "NatGateways": [_make_nat_gw("nat-1")]
@@ -114,7 +115,9 @@ class TestVerifyVpc:
         result = verify_vpc(ec2_client)
         assert result is not None
 
-    def test_サブネット数が不足する場合もvpc_idは返す(self, ec2_client: MagicMock) -> None:
+    def test_サブネット数が不足する場合もvpc_idは返す(
+        self, ec2_client: MagicMock
+    ) -> None:
         ec2_client.describe_vpcs.return_value = {"Vpcs": [_make_vpc()]}
         ec2_client.describe_subnets.return_value = {
             "Subnets": [_make_subnet(f"sn-{i}") for i in range(2)]
@@ -125,13 +128,17 @@ class TestVerifyVpc:
         result = verify_vpc(ec2_client)
         assert result is not None
 
-    def test_NATゲートウェイ数が期待値通りの場合は正常(self, ec2_client: MagicMock) -> None:
+    def test_NATゲートウェイ数が期待値通りの場合は正常(
+        self, ec2_client: MagicMock
+    ) -> None:
         ec2_client.describe_vpcs.return_value = {"Vpcs": [_make_vpc()]}
         ec2_client.describe_subnets.return_value = {
             "Subnets": [_make_subnet(f"sn-{i}") for i in range(EXPECTED_SUBNET_COUNT)]
         }
         ec2_client.describe_nat_gateways.return_value = {
-            "NatGateways": [_make_nat_gw(f"nat-{i}") for i in range(EXPECTED_NAT_GW_COUNT)]
+            "NatGateways": [
+                _make_nat_gw(f"nat-{i}") for i in range(EXPECTED_NAT_GW_COUNT)
+            ]
         }
         result = verify_vpc(ec2_client)
         assert result is not None
@@ -145,7 +152,9 @@ class TestVerifyVpc:
         result = verify_vpc(ec2_client)
         assert result is not None
 
-    def test_describe_vpcsが正しいフィルタで呼ばれる(self, ec2_client: MagicMock) -> None:
+    def test_describe_vpcsが正しいフィルタで呼ばれる(
+        self, ec2_client: MagicMock
+    ) -> None:
         ec2_client.describe_vpcs.return_value = {"Vpcs": []}
         verify_vpc(ec2_client)
         call_kwargs = ec2_client.describe_vpcs.call_args[1]
@@ -167,7 +176,9 @@ class TestVerifyAlb:
         verify_alb(elb_client, "vpc-001")
         elb_client.describe_target_groups.assert_not_called()
 
-    def test_internet_facingスキームが正常と判定される(self, elb_client: MagicMock) -> None:
+    def test_internet_facingスキームが正常と判定される(
+        self, elb_client: MagicMock
+    ) -> None:
         alb = {
             "LoadBalancerArn": "arn:aws:elasticloadbalancing:ap-northeast-1:123:loadbalancer/app/test/abc",
             "LoadBalancerName": "test-alb",
@@ -183,7 +194,9 @@ class TestVerifyAlb:
         verify_alb(elb_client, "vpc-001")
         elb_client.describe_target_groups.assert_called_once()
 
-    def test_internalスキームの場合も処理を継続する(self, elb_client: MagicMock) -> None:
+    def test_internalスキームの場合も処理を継続する(
+        self, elb_client: MagicMock
+    ) -> None:
         alb = {
             "LoadBalancerArn": "arn:aws:elasticloadbalancing:ap-northeast-1:123:loadbalancer/app/test/abc",
             "LoadBalancerName": "test-alb",
@@ -195,7 +208,9 @@ class TestVerifyAlb:
         verify_alb(elb_client, "vpc-001")
         elb_client.describe_target_groups.assert_called_once()
 
-    def test_ターゲットグループが存在しない場合も終了しない(self, elb_client: MagicMock) -> None:
+    def test_ターゲットグループが存在しない場合も終了しない(
+        self, elb_client: MagicMock
+    ) -> None:
         alb = {
             "LoadBalancerArn": "arn:aws:elasticloadbalancing:ap-northeast-1:123:loadbalancer/app/test/abc",
             "LoadBalancerName": "test-alb",
@@ -226,11 +241,15 @@ class TestVerifyEc2:
         verify_ec2(ec2_client, None)
         ec2_client.describe_instances.assert_not_called()
 
-    def test_インスタンスが見つからない場合は処理を終了する(self, ec2_client: MagicMock) -> None:
+    def test_インスタンスが見つからない場合は処理を終了する(
+        self, ec2_client: MagicMock
+    ) -> None:
         ec2_client.describe_instances.return_value = {"Reservations": []}
         verify_ec2(ec2_client, "vpc-001")
 
-    def test_正しいインスタンスタイプで件数を表示する(self, ec2_client: MagicMock) -> None:
+    def test_正しいインスタンスタイプで件数を表示する(
+        self, ec2_client: MagicMock
+    ) -> None:
         reservation = {
             "Instances": [
                 {
@@ -244,7 +263,9 @@ class TestVerifyEc2:
         verify_ec2(ec2_client, "vpc-001")
         ec2_client.describe_instances.assert_called_once()
 
-    def test_誤ったインスタンスタイプでも処理を継続する(self, ec2_client: MagicMock) -> None:
+    def test_誤ったインスタンスタイプでも処理を継続する(
+        self, ec2_client: MagicMock
+    ) -> None:
         reservation = {
             "Instances": [
                 {
@@ -258,7 +279,9 @@ class TestVerifyEc2:
         verify_ec2(ec2_client, "vpc-001")
         ec2_client.describe_instances.assert_called_once()
 
-    def test_複数インスタンスの場合はすべて処理する(self, ec2_client: MagicMock) -> None:
+    def test_複数インスタンスの場合はすべて処理する(
+        self, ec2_client: MagicMock
+    ) -> None:
         reservations = [
             {
                 "Instances": [
@@ -275,7 +298,9 @@ class TestVerifyEc2:
         verify_ec2(ec2_client, "vpc-001")
         ec2_client.describe_instances.assert_called_once()
 
-    def test_describe_instancesにvpc_idフィルタが渡される(self, ec2_client: MagicMock) -> None:
+    def test_describe_instancesにvpc_idフィルタが渡される(
+        self, ec2_client: MagicMock
+    ) -> None:
         ec2_client.describe_instances.return_value = {"Reservations": []}
         verify_ec2(ec2_client, "vpc-test-123")
         call_kwargs = ec2_client.describe_instances.call_args[1]
@@ -439,7 +464,13 @@ class TestMain:
         import sys
 
         original_argv = sys.argv
-        sys.argv = ["verify_stack.py", "--region", "us-east-1", "--profile", "my-profile"]
+        sys.argv = [
+            "verify_stack.py",
+            "--region",
+            "us-east-1",
+            "--profile",
+            "my-profile",
+        ]
         try:
             main()
             mock_session.assert_called_with(
