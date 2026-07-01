@@ -1,0 +1,36 @@
+name: Python Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: pytest / ruff / black
+    runs-on: ubuntu-latest
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pytest pytest-cov ruff black boto3
+
+      - name: ruff（構文チェック）
+        run: ruff check scripts/
+
+      - name: black（フォーマットチェック）
+        run: black --check scripts/
+
+      - name: pytest
+        run: pytest scripts/test_verify_stack.py -v --tb=short
