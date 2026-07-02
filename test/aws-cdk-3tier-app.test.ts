@@ -160,3 +160,63 @@ describe('タグ', () => {
     });
   });
 });
+
+// ── VPC 追加テスト ─────────────────────────────────────────────
+describe('VPC 詳細', () => {
+  test('InternetGateway がサブネットにアタッチされる', () => {
+    template.resourceCountIs('AWS::EC2::VPCGatewayAttachment', 1);
+  });
+
+  test('ルートテーブルが作成される', () => {
+    // CDK は Public / Private / Isolated それぞれにルートテーブルを生成する
+    const routeTables = template.findResources('AWS::EC2::RouteTable');
+    expect(Object.keys(routeTables).length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ── ALB 追加テスト ─────────────────────────────────────────────
+describe('ALB 詳細', () => {
+  test('ターゲットグループのプロトコルが HTTP である', () => {
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+      Protocol: 'HTTP',
+    });
+  });
+
+  test('ターゲットグループのターゲットタイプが instance である', () => {
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+      TargetType: 'instance',
+    });
+  });
+});
+
+// ── EC2 追加テスト ─────────────────────────────────────────────
+describe('EC2 詳細', () => {
+  test('EC2 インスタンスが 1 つ作成される', () => {
+    template.resourceCountIs('AWS::EC2::Instance', 1);
+  });
+});
+
+// ── RDS 追加テスト ─────────────────────────────────────────────
+describe('RDS 詳細', () => {
+  test('RDS DB サブネットグループが作成される', () => {
+    template.resourceCountIs('AWS::RDS::DBSubnetGroup', 1);
+  });
+
+  test('RDS MultiAZ が無効である（dev 環境）', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      MultiAZ: false,
+    });
+  });
+});
+
+// ── Monitoring テスト ──────────────────────────────────────────
+describe('Monitoring', () => {
+  test('CloudWatch Alarm が 1 つ以上作成される', () => {
+    const alarms = template.findResources('AWS::CloudWatch::Alarm');
+    expect(Object.keys(alarms).length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('CloudWatch Dashboard が作成される', () => {
+    template.resourceCountIs('AWS::CloudWatch::Dashboard', 1);
+  });
+});
