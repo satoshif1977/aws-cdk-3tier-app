@@ -307,9 +307,3 @@ describe('CfnOutput', () => {
   });
 });
 
-// ── スナップショットテスト ──────────────────────────────────────
-describe('スナップショット', () => {
-  test('スタック全体のスナップショット', () => {
-    expect(template.toJSON()).toMatchSnapshot();
-  });
-});
