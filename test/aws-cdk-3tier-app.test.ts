@@ -220,3 +220,96 @@ describe('Monitoring', () => {
     template.resourceCountIs('AWS::CloudWatch::Dashboard', 1);
   });
 });
+
+// ── Monitoring 詳細テスト ───────────────────────────────────────
+describe('Monitoring 詳細', () => {
+  test('CloudWatch Alarm が 5 つ作成される（ALB 5xx / 非正常ホスト / EC2 CPU / RDS CPU / RDS ストレージ）', () => {
+    template.resourceCountIs('AWS::CloudWatch::Alarm', 5);
+  });
+
+  test('ALB 5xx アラームの閾値が 5 である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-alb-5xx-rate',
+      Threshold: 5,
+    });
+  });
+
+  test('ALB 非正常ホストアラームの閾値が 1 である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-alb-unhealthy-hosts',
+      Threshold: 1,
+    });
+  });
+
+  test('EC2 CPU アラームの閾値が 80 である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-ec2-cpu-high',
+      Threshold: 80,
+    });
+  });
+
+  test('RDS CPU アラームの閾値が 80 である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-rds-cpu-high',
+      Threshold: 80,
+    });
+  });
+
+  test('CloudWatch Dashboard 名が cdk-3tier-app-dashboard である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Dashboard', {
+      DashboardName: 'cdk-3tier-app-dashboard',
+    });
+  });
+});
+
+// ── RDS セキュリティ詳細テスト ──────────────────────────────────
+describe('RDS セキュリティ詳細', () => {
+  test('RDS インスタンス識別子が cdk-3tier-db である', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      DBInstanceIdentifier: 'cdk-3tier-db',
+    });
+  });
+
+  test('RDS 割り当てストレージが 20GB である', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      AllocatedStorage: '20',
+    });
+  });
+
+  test('RDS 削除保護が無効である（学習環境）', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      DeletionProtection: false,
+    });
+  });
+
+  test('RDS パスワードが Secrets Manager で管理される', () => {
+    template.resourceCountIs('AWS::SecretsManager::Secret', 1);
+  });
+});
+
+// ── CfnOutput テスト ────────────────────────────────────────────
+describe('CfnOutput', () => {
+  test('CfnOutput が 3 つ以上存在する（DbEndpoint / DbSecretArn / DashboardUrl）', () => {
+    const outputs = template.findOutputs('*');
+    expect(Object.keys(outputs).length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('Dashboard URL Output に ap-northeast-1 が含まれる', () => {
+    const outputs = template.findOutputs('*');
+    const allValues = JSON.stringify(outputs);
+    expect(allValues).toContain('ap-northeast-1');
+  });
+
+  test('RDS エンドポイント Output が存在する', () => {
+    const outputs = template.findOutputs('*');
+    const allValues = JSON.stringify(outputs);
+    expect(allValues.toLowerCase()).toContain('endpoint');
+  });
+});
+
+// ── スナップショットテスト ──────────────────────────────────────
+describe('スナップショット', () => {
+  test('スタック全体のスナップショット', () => {
+    expect(template.toJSON()).toMatchSnapshot();
+  });
+});
