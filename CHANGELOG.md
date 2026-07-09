@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-10
+
+### Added
+- CDK Assertions 詳細検証テスト 17 件追加（リソース属性・セキュリティ設定・出力値の詳細検証）
+- `cdk-nag`（AwsSolutionsChecks）導入・dev 環境向け抑制設定（11 ルール）
+
+### Changed
+- `.gitignore`: `coverage/` と `__pycache__/` を追加
+- Dependabot: `aws-cdk-lib` / `aws-cdk` / `@types/node` 更新
+
 ## [1.4.0] - 2026-06-16
 
 ### Changed
