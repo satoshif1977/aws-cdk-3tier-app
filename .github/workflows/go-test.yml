@@ -32,4 +32,11 @@ jobs:
       - name: go vet
         run: go vet ./...
       - name: go test
-        run: go test -v ./verify_stack/...
+        run: go test -v ./verify_stack/... -coverprofile=coverage.out -covermode=atomic
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: scripts_go/coverage.out
+          flags: go
+          fail_ci_if_error: false
