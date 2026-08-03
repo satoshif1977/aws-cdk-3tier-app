@@ -242,6 +242,6 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"\n[ERROR] {e}", file=sys.stderr)
         sys.exit(1)
