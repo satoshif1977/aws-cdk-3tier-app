@@ -291,7 +291,9 @@ class TestVerifyAlb:
     def test_describe_target_groupsに正しいARNが渡される(
         self, elb_client: MagicMock
     ) -> None:
-        alb_arn = "arn:aws:elasticloadbalancing:ap-northeast-1:123:loadbalancer/app/test/abc"
+        alb_arn = (
+            "arn:aws:elasticloadbalancing:ap-northeast-1:123:loadbalancer/app/test/abc"
+        )
         alb = {
             "LoadBalancerArn": alb_arn,
             "LoadBalancerName": "test-alb",
@@ -425,9 +427,7 @@ class TestVerifyEc2:
         assert "running" in state_filter["Values"]
         assert "stopped" in state_filter["Values"]
 
-    def test_stopped状態のインスタンスも対象になる(
-        self, ec2_client: MagicMock
-    ) -> None:
+    def test_stopped状態のインスタンスも対象になる(self, ec2_client: MagicMock) -> None:
         reservation = {
             "Instances": [
                 {
