@@ -162,6 +162,62 @@ class TestVerifyVpc:
         names = [f["Name"] for f in filters]
         assert "tag:Name" in names
 
+    def test_サブネット数がちょうど期待値の場合も正常(
+        self, ec2_client: MagicMock
+    ) -> None:
+        ec2_client.describe_vpcs.return_value = {"Vpcs": [_make_vpc()]}
+        ec2_client.describe_subnets.return_value = {
+            "Subnets": [_make_subnet(f"sn-{i}") for i in range(EXPECTED_SUBNET_COUNT)]
+        }
+        ec2_client.describe_nat_gateways.return_value = {
+            "NatGateways": [_make_nat_gw("nat-1")]
+        }
+        result = verify_vpc(ec2_client)
+        assert result is not None
+
+    def test_describe_subnetsにvpc_idフィルタが渡される(
+        self, ec2_client: MagicMock
+    ) -> None:
+        ec2_client.describe_vpcs.return_value = {"Vpcs": [_make_vpc("vpc-xyz")]}
+        ec2_client.describe_subnets.return_value = {
+            "Subnets": [_make_subnet(f"sn-{i}") for i in range(EXPECTED_SUBNET_COUNT)]
+        }
+        ec2_client.describe_nat_gateways.return_value = {"NatGateways": []}
+        verify_vpc(ec2_client)
+        call_kwargs = ec2_client.describe_subnets.call_args[1]
+        filters = call_kwargs["Filters"]
+        vpc_filter = next((f for f in filters if f["Name"] == "vpc-id"), None)
+        assert vpc_filter is not None
+        assert "vpc-xyz" in vpc_filter["Values"]
+
+    def test_describe_nat_gatewaysにvpc_idフィルタが渡される(
+        self, ec2_client: MagicMock
+    ) -> None:
+        ec2_client.describe_vpcs.return_value = {"Vpcs": [_make_vpc("vpc-xyz")]}
+        ec2_client.describe_subnets.return_value = {
+            "Subnets": [_make_subnet(f"sn-{i}") for i in range(EXPECTED_SUBNET_COUNT)]
+        }
+        ec2_client.describe_nat_gateways.return_value = {"NatGateways": []}
+        verify_vpc(ec2_client)
+        call_kwargs = ec2_client.describe_nat_gateways.call_args[1]
+        filters = call_kwargs["Filters"]
+        vpc_filter = next((f for f in filters if f["Name"] == "vpc-id"), None)
+        assert vpc_filter is not None
+        assert "vpc-xyz" in vpc_filter["Values"]
+
+    def test_NATゲートウェイが複数の場合もvpc_idを返す(
+        self, ec2_client: MagicMock
+    ) -> None:
+        ec2_client.describe_vpcs.return_value = {"Vpcs": [_make_vpc("vpc-multi")]}
+        ec2_client.describe_subnets.return_value = {
+            "Subnets": [_make_subnet(f"sn-{i}") for i in range(EXPECTED_SUBNET_COUNT)]
+        }
+        ec2_client.describe_nat_gateways.return_value = {
+            "NatGateways": [_make_nat_gw(f"nat-{i}") for i in range(3)]
+        }
+        result = verify_vpc(ec2_client)
+        assert result == "vpc-multi"
+
 
 # ── verify_alb テスト ─────────────────────────────────────────────
 
@@ -231,6 +287,54 @@ class TestVerifyAlb:
         elb_client.describe_load_balancers.return_value = {"LoadBalancers": [other_alb]}
         verify_alb(elb_client, "vpc-001")
         elb_client.describe_target_groups.assert_not_called()
+
+    def test_describe_target_groupsに正しいARNが渡される(
+        self, elb_client: MagicMock
+    ) -> None:
+        alb_arn = (
+            "arn:aws:elasticloadbalancing:ap-northeast-1:123:loadbalancer/app/test/abc"
+        )
+        alb = {
+            "LoadBalancerArn": alb_arn,
+            "LoadBalancerName": "test-alb",
+            "Scheme": "internet-facing",
+            "VpcId": "vpc-001",
+        }
+        elb_client.describe_load_balancers.return_value = {"LoadBalancers": [alb]}
+        elb_client.describe_target_groups.return_value = {
+            "TargetGroups": [{"TargetGroupName": "tg", "HealthCheckPath": "/"}]
+        }
+        verify_alb(elb_client, "vpc-001")
+        call_kwargs = elb_client.describe_target_groups.call_args[1]
+        assert call_kwargs["LoadBalancerArn"] == alb_arn
+
+    def test_複数ALBのうちVPCに属するものが選択される(
+        self, elb_client: MagicMock
+    ) -> None:
+        alb_in_vpc = {
+            "LoadBalancerArn": "arn:aws:elasticloadbalancing:ap-northeast-1:123:loadbalancer/app/main/001",
+            "LoadBalancerName": "main-alb",
+            "Scheme": "internet-facing",
+            "VpcId": "vpc-001",
+        }
+        alb_other = {
+            "LoadBalancerArn": "arn:aws:elasticloadbalancing:ap-northeast-1:123:loadbalancer/app/other/002",
+            "LoadBalancerName": "other-alb",
+            "Scheme": "internet-facing",
+            "VpcId": "vpc-999",
+        }
+        elb_client.describe_load_balancers.return_value = {
+            "LoadBalancers": [alb_other, alb_in_vpc]
+        }
+        elb_client.describe_target_groups.return_value = {"TargetGroups": []}
+        verify_alb(elb_client, "vpc-001")
+        call_kwargs = elb_client.describe_target_groups.call_args[1]
+        assert call_kwargs["LoadBalancerArn"] == alb_in_vpc["LoadBalancerArn"]
+
+    def test_describe_load_balancersが呼ばれる(self, elb_client: MagicMock) -> None:
+        elb_client.describe_load_balancers.return_value = {"LoadBalancers": []}
+        verify_alb(elb_client, "vpc-001")
+        elb_client.describe_load_balancers.assert_called_once()
 
 
 # ── verify_ec2 テスト ─────────────────────────────────────────────
@@ -308,6 +412,66 @@ class TestVerifyEc2:
         vpc_filter = next((f for f in filters if f["Name"] == "vpc-id"), None)
         assert vpc_filter is not None
         assert "vpc-test-123" in vpc_filter["Values"]
+
+    def test_describe_instancesにinstance_state_nameフィルタが渡される(
+        self, ec2_client: MagicMock
+    ) -> None:
+        ec2_client.describe_instances.return_value = {"Reservations": []}
+        verify_ec2(ec2_client, "vpc-test-123")
+        call_kwargs = ec2_client.describe_instances.call_args[1]
+        filters = call_kwargs["Filters"]
+        state_filter = next(
+            (f for f in filters if f["Name"] == "instance-state-name"), None
+        )
+        assert state_filter is not None
+        assert "running" in state_filter["Values"]
+        assert "stopped" in state_filter["Values"]
+
+    def test_stopped状態のインスタンスも対象になる(self, ec2_client: MagicMock) -> None:
+        reservation = {
+            "Instances": [
+                {
+                    "InstanceId": "i-stopped",
+                    "InstanceType": INSTANCE_TYPE,
+                    "State": {"Name": "stopped"},
+                }
+            ]
+        }
+        ec2_client.describe_instances.return_value = {"Reservations": [reservation]}
+        verify_ec2(ec2_client, "vpc-001")
+        ec2_client.describe_instances.assert_called_once()
+
+    def test_複数Reservationにまたがるインスタンスを集計する(
+        self, ec2_client: MagicMock
+    ) -> None:
+        reservations = [
+            {
+                "Instances": [
+                    {
+                        "InstanceId": "i-001",
+                        "InstanceType": INSTANCE_TYPE,
+                        "State": {"Name": "running"},
+                    },
+                    {
+                        "InstanceId": "i-002",
+                        "InstanceType": INSTANCE_TYPE,
+                        "State": {"Name": "stopped"},
+                    },
+                ]
+            },
+            {
+                "Instances": [
+                    {
+                        "InstanceId": "i-003",
+                        "InstanceType": "t3.small",
+                        "State": {"Name": "running"},
+                    }
+                ]
+            },
+        ]
+        ec2_client.describe_instances.return_value = {"Reservations": reservations}
+        verify_ec2(ec2_client, "vpc-001")
+        ec2_client.describe_instances.assert_called_once()
 
 
 # ── verify_rds テスト ─────────────────────────────────────────────
@@ -406,6 +570,44 @@ class TestVerifyRds:
         verify_rds(rds_client)
         rds_client.describe_db_instances.assert_called_once()
 
+    def test_バックアップ保持期間が0の場合も処理を継続する(
+        self, rds_client: MagicMock
+    ) -> None:
+        rds_client.describe_db_instances.return_value = {
+            "DBInstances": [self._make_rds_instance(backup_retention=0)]
+        }
+        verify_rds(rds_client)
+        rds_client.describe_db_instances.assert_called_once()
+
+    def test_StorageEncryptedキーが存在しない場合も処理を継続する(
+        self, rds_client: MagicMock
+    ) -> None:
+        instance = self._make_rds_instance()
+        del instance["StorageEncrypted"]
+        rds_client.describe_db_instances.return_value = {"DBInstances": [instance]}
+        verify_rds(rds_client)
+        rds_client.describe_db_instances.assert_called_once()
+
+    def test_BackupRetentionPeriodキーが存在しない場合も処理を継続する(
+        self, rds_client: MagicMock
+    ) -> None:
+        instance = self._make_rds_instance()
+        del instance["BackupRetentionPeriod"]
+        rds_client.describe_db_instances.return_value = {"DBInstances": [instance]}
+        verify_rds(rds_client)
+        rds_client.describe_db_instances.assert_called_once()
+
+    def test_バックアップ保持期間がちょうど期待値の境界値で正常判定(
+        self, rds_client: MagicMock
+    ) -> None:
+        rds_client.describe_db_instances.return_value = {
+            "DBInstances": [
+                self._make_rds_instance(backup_retention=EXPECTED_BACKUP_RETENTION)
+            ]
+        }
+        verify_rds(rds_client)
+        rds_client.describe_db_instances.assert_called_once()
+
 
 # ── main 統合テスト ───────────────────────────────────────────────
 
@@ -476,5 +678,83 @@ class TestMain:
             mock_session.assert_called_with(
                 profile_name="my-profile", region_name="us-east-1"
             )
+        finally:
+            sys.argv = original_argv
+
+    @patch("verify_stack.boto3.Session")
+    def test_デフォルトリージョンはap_northeast_1(
+        self, mock_session: MagicMock
+    ) -> None:
+        from verify_stack import main
+
+        mock_sess = MagicMock()
+        mock_session.return_value = mock_sess
+
+        ec2 = MagicMock()
+        ec2.describe_vpcs.return_value = {"Vpcs": []}
+        mock_sess.client.side_effect = lambda svc: {
+            "ec2": ec2,
+            "elbv2": MagicMock(
+                describe_load_balancers=MagicMock(return_value={"LoadBalancers": []})
+            ),
+            "rds": MagicMock(
+                describe_db_instances=MagicMock(return_value={"DBInstances": []})
+            ),
+        }.get(svc, MagicMock())
+
+        import sys
+
+        original_argv = sys.argv
+        sys.argv = ["verify_stack.py"]
+        try:
+            main()
+            mock_session.assert_called_with(
+                profile_name=None, region_name="ap-northeast-1"
+            )
+        finally:
+            sys.argv = original_argv
+
+    @patch("verify_stack.boto3.Session")
+    def test_VPC検出時にALBとEC2とRDSの全検証が実行される(
+        self, mock_session: MagicMock
+    ) -> None:
+        from verify_stack import main
+
+        mock_sess = MagicMock()
+        mock_session.return_value = mock_sess
+
+        ec2 = MagicMock()
+        ec2.describe_vpcs.return_value = {
+            "Vpcs": [{"VpcId": "vpc-found", "CidrBlock": "10.0.0.0/16"}]
+        }
+        ec2.describe_subnets.return_value = {
+            "Subnets": [{"SubnetId": f"sn-{i}"} for i in range(EXPECTED_SUBNET_COUNT)]
+        }
+        ec2.describe_nat_gateways.return_value = {
+            "NatGateways": [{"NatGatewayId": "nat-1"}]
+        }
+        ec2.describe_instances.return_value = {"Reservations": []}
+
+        elb = MagicMock()
+        elb.describe_load_balancers.return_value = {"LoadBalancers": []}
+
+        rds = MagicMock()
+        rds.describe_db_instances.return_value = {"DBInstances": []}
+
+        mock_sess.client.side_effect = lambda svc: {
+            "ec2": ec2,
+            "elbv2": elb,
+            "rds": rds,
+        }.get(svc, MagicMock())
+
+        import sys
+
+        original_argv = sys.argv
+        sys.argv = ["verify_stack.py"]
+        try:
+            main()
+            elb.describe_load_balancers.assert_called_once()
+            ec2.describe_instances.assert_called_once()
+            rds.describe_db_instances.assert_called_once()
         finally:
             sys.argv = original_argv
