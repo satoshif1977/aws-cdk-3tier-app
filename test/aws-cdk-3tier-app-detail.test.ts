@@ -90,6 +90,229 @@ describe('ターゲットグループ詳細', () => {
   });
 });
 
+// ── VPC 追加詳細 ──────────────────────────────────────────────────
+describe('VPC 追加詳細', () => {
+  test('VPC の maxAzs が 2 である（サブネット数から推定）', () => {
+    // Public×2 + Private×2 + Isolated×2 = 6 サブネット → maxAzs=2 であることを確認
+    template.resourceCountIs('AWS::EC2::Subnet', 6);
+  });
+
+  test('Public サブネットが 2 つ存在する', () => {
+    const subnets = template.findResources('AWS::EC2::Subnet', {
+      Properties: {
+        MapPublicIpOnLaunch: true,
+      },
+    });
+    expect(Object.keys(subnets).length).toBe(2);
+  });
+
+  test('サブネットの CIDR が /24 マスクで作成される', () => {
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('/24');
+  });
+
+  test('VPC の DNS ホスト名が有効化されている', () => {
+    template.hasResourceProperties('AWS::EC2::VPC', {
+      EnableDnsHostnames: true,
+    });
+  });
+
+  test('VPC の DNS サポートが有効化されている', () => {
+    template.hasResourceProperties('AWS::EC2::VPC', {
+      EnableDnsSupport: true,
+    });
+  });
+});
+
+// ── ALB 追加詳細 ──────────────────────────────────────────────────
+describe('ALB 追加詳細', () => {
+  test('ALB リスナーが 1 つ作成される', () => {
+    template.resourceCountIs('AWS::ElasticLoadBalancingV2::Listener', 1);
+  });
+
+  test('ALB ターゲットグループが 1 つ作成される', () => {
+    template.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 1);
+  });
+
+  test('ALB リスナーのデフォルトアクションが forward である', () => {
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+      DefaultActions: Match.arrayWith([
+        Match.objectLike({ Type: 'forward' }),
+      ]),
+    });
+  });
+
+  test('ALB セキュリティグループの説明が Security group for ALB である', () => {
+    template.hasResourceProperties('AWS::EC2::SecurityGroup', {
+      GroupDescription: 'Security group for ALB',
+    });
+  });
+});
+
+// ── EC2 追加詳細 ──────────────────────────────────────────────────
+describe('EC2 追加詳細', () => {
+  test('EC2 UserData に dnf install コマンドが含まれる', () => {
+    const instances = template.findResources('AWS::EC2::Instance');
+    const userData = JSON.stringify(Object.values(instances));
+    expect(userData).toContain('dnf');
+  });
+
+  test('EC2 UserData に systemctl enable httpd コマンドが含まれる', () => {
+    const instances = template.findResources('AWS::EC2::Instance');
+    const userData = JSON.stringify(Object.values(instances));
+    expect(userData).toContain('systemctl');
+  });
+
+  test('EC2 UserData に index.html 作成コマンドが含まれる', () => {
+    const instances = template.findResources('AWS::EC2::Instance');
+    const userData = JSON.stringify(Object.values(instances));
+    expect(userData).toContain('index.html');
+  });
+
+  test('EC2 セキュリティグループの説明が Security group for EC2 web servers である', () => {
+    template.hasResourceProperties('AWS::EC2::SecurityGroup', {
+      GroupDescription: 'Security group for EC2 web servers',
+    });
+  });
+
+  test('EC2 用 IAM ロールがランダムでなく固定名で作成される（cdk-3tier-ec2-role）', () => {
+    template.hasResourceProperties('AWS::IAM::Role', {
+      RoleName: 'cdk-3tier-ec2-role',
+    });
+  });
+
+  test('EC2 インスタンスプロファイルが 1 つ作成される', () => {
+    template.resourceCountIs('AWS::IAM::InstanceProfile', 1);
+  });
+});
+
+// ── RDS 追加詳細 ──────────────────────────────────────────────────
+describe('RDS 追加詳細', () => {
+  test('RDS のデフォルトポート（3306）が設定されている', () => {
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('3306');
+  });
+
+  test('RDS エンジンが mysql である', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      Engine: 'mysql',
+    });
+  });
+
+  test('RDS ストレージタイプがデフォルト（gp2）である', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      StorageType: 'gp2',
+    });
+  });
+
+  test('RDS マスターユーザー名が admin である', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      MasterUsername: 'admin',
+    });
+  });
+
+  test('RDS サブネットグループが Isolated サブネットを使用する', () => {
+    template.resourceCountIs('AWS::RDS::DBSubnetGroup', 1);
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('DBSubnetGroup');
+  });
+
+  test('RDS の削除ポリシーが Delete である（学習環境）', () => {
+    template.hasResource('AWS::RDS::DBInstance', {
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+  });
+});
+
+// ── CloudWatch アラーム詳細 ───────────────────────────────────────
+describe('CloudWatch アラーム詳細', () => {
+  test('ALB 5xx アラームの評価期間が 2 である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-alb-5xx-rate',
+      EvaluationPeriods: 2,
+    });
+  });
+
+  test('ALB 非正常ホストアラームの評価期間が 3 である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-alb-unhealthy-hosts',
+      EvaluationPeriods: 3,
+    });
+  });
+
+  test('EC2 CPU アラームの評価期間が 3 である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-ec2-cpu-high',
+      EvaluationPeriods: 3,
+    });
+  });
+
+  test('RDS CPU アラームの評価期間が 3 である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-rds-cpu-high',
+      EvaluationPeriods: 3,
+    });
+  });
+
+  test('RDS 空きストレージアラームが存在する', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-rds-free-storage-low',
+    });
+  });
+
+  test('RDS 空きストレージアラームの閾値が 2GB（バイト換算）である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-rds-free-storage-low',
+      Threshold: 2 * 1024 * 1024 * 1024,
+    });
+  });
+
+  test('ALB 5xx アラームの比較演算子が GreaterThanOrEqualToThreshold である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-alb-5xx-rate',
+      ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+    });
+  });
+
+  test('テンプレートに AWS/EC2 名前空間が含まれる（EC2 CPU アラーム）', () => {
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('AWS/EC2');
+  });
+
+  test('テンプレートに CPUUtilization メトリクスが含まれる（EC2/RDS CPU アラーム）', () => {
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('CPUUtilization');
+  });
+});
+
+// ── タグ詳細 ─────────────────────────────────────────────────────
+describe('タグ詳細', () => {
+  test('EC2 インスタンスに Project タグが付与される', () => {
+    template.hasResourceProperties('AWS::EC2::Instance', {
+      Tags: Match.arrayWith([
+        Match.objectLike({ Key: 'Project', Value: 'cdk-3tier-app' }),
+      ]),
+    });
+  });
+
+  test('EC2 インスタンスに ManagedBy=CDK タグが付与される', () => {
+    template.hasResourceProperties('AWS::EC2::Instance', {
+      Tags: Match.arrayWith([
+        Match.objectLike({ Key: 'ManagedBy', Value: 'CDK' }),
+      ]),
+    });
+  });
+
+  test('RDS に Project タグが付与される', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      Tags: Match.arrayWith([
+        Match.objectLike({ Key: 'Project', Value: 'cdk-3tier-app' }),
+      ]),
+    });
+  });
+});
+
 // ── CfnOutput ────────────────────────────────────────────────────
 describe('CfnOutput 詳細', () => {
   test('VpcId Output が存在する', () => {
