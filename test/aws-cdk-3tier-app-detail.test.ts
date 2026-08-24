@@ -344,4 +344,120 @@ describe('CfnOutput 詳細', () => {
     const allKeys = JSON.stringify(Object.keys(outputs));
     expect(allKeys.toLowerCase()).toContain('dbsecretarn');
   });
+
+  test('Output が 5 つ以上存在する', () => {
+    const outputs = template.findOutputs('*');
+    expect(Object.keys(outputs).length).toBeGreaterThanOrEqual(5);
+  });
+});
+
+// ── VPC ネットワーク追加 ──────────────────────────────────────────
+describe('VPC ネットワーク追加', () => {
+  test('Elastic IP が NAT Gateway 用に 1 つ作成される', () => {
+    template.resourceCountIs('AWS::EC2::EIP', 1);
+  });
+
+  test('Private サブネットが 2 つ存在する', () => {
+    const subnets = template.findResources('AWS::EC2::Subnet', {
+      Properties: {
+        MapPublicIpOnLaunch: false,
+      },
+    });
+    // Private + Isolated = 4（MapPublicIpOnLaunch=false）
+    expect(Object.keys(subnets).length).toBe(4);
+  });
+
+  test('VPC CIDR が 10.0.0.0/16 である', () => {
+    template.hasResourceProperties('AWS::EC2::VPC', {
+      CidrBlock: '10.0.0.0/16',
+    });
+  });
+});
+
+// ── ALB 追加検証 ────────────────────────────────────────────────
+describe('ALB 追加検証', () => {
+  test('ALB が 1 つだけ作成される', () => {
+    template.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
+  });
+
+  test('ターゲットグループのヘルスチェックパスが / である', () => {
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+      HealthCheckPath: '/',
+    });
+  });
+
+  test('ALB リスナーのプロトコルが HTTP である', () => {
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+      Protocol: 'HTTP',
+    });
+  });
+});
+
+// ── EC2 追加検証 ────────────────────────────────────────────────
+describe('EC2 追加検証', () => {
+  test('EC2 インスタンスに Name タグが付与される', () => {
+    template.hasResourceProperties('AWS::EC2::Instance', {
+      Tags: Match.arrayWith([
+        Match.objectLike({ Key: 'Name' }),
+      ]),
+    });
+  });
+
+  test('EC2 セキュリティグループに Ingress ルールが存在する', () => {
+    const ingresses = template.findResources('AWS::EC2::SecurityGroupIngress');
+    expect(Object.keys(ingresses).length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ── RDS 追加検証 ────────────────────────────────────────────────
+describe('RDS 追加検証', () => {
+  test('RDS が 1 つだけ作成される', () => {
+    template.resourceCountIs('AWS::RDS::DBInstance', 1);
+  });
+
+  test('RDS エンジンバージョンが 8.0 で始まる', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      EngineVersion: Match.stringLikeRegexp('^8\\.0'),
+    });
+  });
+
+  test('RDS StorageEncrypted が true である', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      StorageEncrypted: true,
+    });
+  });
+});
+
+// ── CloudWatch アラーム追加 ──────────────────────────────────────
+describe('CloudWatch アラーム追加', () => {
+  test('RDS 空きストレージアラームの Period が 300 秒である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-rds-free-storage-low',
+      Period: 300,
+    });
+  });
+
+  test('ALB 非正常ホストアラームの比較演算子が GreaterThanOrEqualToThreshold である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-alb-unhealthy-hosts',
+      ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+    });
+  });
+
+  test('RDS 空きストレージアラームの比較演算子が LessThanOrEqualToThreshold である', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'cdk-3tier-rds-free-storage-low',
+      ComparisonOperator: 'LessThanOrEqualToThreshold',
+    });
+  });
+
+  test('テンプレートに AWS/RDS 名前空間が含まれる', () => {
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('AWS/RDS');
+  });
+
+  test('テンプレートに FreeStorageSpace メトリクスが含まれる', () => {
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('FreeStorageSpace');
+  });
 });
