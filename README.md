@@ -1,7 +1,9 @@
 # aws-cdk-3tier-app
 
 ![CDK](https://img.shields.io/badge/AWS_CDK-TypeScript-blue?logo=amazon-aws)
-![CI](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/cdk-synth.yml/badge.svg)
+[![CDK Synth](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/cdk-synth.yml/badge.svg)](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/cdk-synth.yml)
+[![CDK Diff](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/cdk-diff.yml/badge.svg)](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/cdk-diff.yml)
+[![TypeScript Test](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/ts-test.yml/badge.svg)](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/ts-test.yml)
 [![Go Test](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/go-test.yml/badge.svg)](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/go-test.yml)
 [![Python Test](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/python-test.yml/badge.svg)](https://github.com/satoshif1977/aws-cdk-3tier-app/actions/workflows/python-test.yml)
 [![codecov](https://codecov.io/gh/satoshif1977/aws-cdk-3tier-app/graph/badge.svg)](https://codecov.io/gh/satoshif1977/aws-cdk-3tier-app)
