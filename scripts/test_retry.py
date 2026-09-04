@@ -7,6 +7,7 @@ sleep / rand を注入して、実待機ゼロかつ決定的に検証する。
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import sys
 from unittest.mock import MagicMock
@@ -21,7 +22,7 @@ from botocore.exceptions import (
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from retry import (  # noqa: E402
+from retry import (
     DEFAULT_CONFIG,
     RetryConfig,
     compute_delay,
@@ -75,7 +76,7 @@ class TestRetryConfig:
             RetryConfig(base_delay=2.0, max_delay=1.0)
 
     def test_不変(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(dataclasses.FrozenInstanceError):
             DEFAULT_CONFIG.max_attempts = 99  # type: ignore[misc]
 
 
