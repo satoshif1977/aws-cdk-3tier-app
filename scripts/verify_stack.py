@@ -18,6 +18,7 @@ import sys
 from typing import Any
 
 import boto3
+from retry import retry_call
 
 # ── 定数 ──────────────────────────────────────────────────────────
 
@@ -56,8 +57,9 @@ def section(title: str) -> None:
 
 def verify_vpc(ec2_client: Any) -> str | None:
     section("VPC")
-    vpcs = ec2_client.describe_vpcs(
-        Filters=[{"Name": "tag:Name", "Values": [VPC_NAME]}]
+    vpcs = retry_call(
+        ec2_client.describe_vpcs,
+        Filters=[{"Name": "tag:Name", "Values": [VPC_NAME]}],
     )["Vpcs"]
 
     if not vpcs:
@@ -74,8 +76,9 @@ def verify_vpc(ec2_client: Any) -> str | None:
         ng(f"CIDR ブロックが想定外: {vpc['CidrBlock']} (期待: 10.0.0.0/16)")
 
     # サブネット数確認
-    subnets = ec2_client.describe_subnets(
-        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
+    subnets = retry_call(
+        ec2_client.describe_subnets,
+        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}],
     )["Subnets"]
     count = len(subnets)
     if count >= EXPECTED_SUBNET_COUNT:
@@ -84,11 +87,12 @@ def verify_vpc(ec2_client: Any) -> str | None:
         ng(f"サブネット数不足: {count}件（期待: {EXPECTED_SUBNET_COUNT}件以上）")
 
     # NAT ゲートウェイ数確認
-    nat_gws = ec2_client.describe_nat_gateways(
+    nat_gws = retry_call(
+        ec2_client.describe_nat_gateways,
         Filters=[
             {"Name": "vpc-id", "Values": [vpc_id]},
             {"Name": "state", "Values": ["available"]},
-        ]
+        ],
     )["NatGateways"]
     nat_count = len(nat_gws)
     if nat_count == EXPECTED_NAT_GW_COUNT:
@@ -110,7 +114,7 @@ def verify_alb(elb_client: Any, vpc_id: str | None) -> None:
         skip("VPC が未検出のためスキップ")
         return
 
-    albs = elb_client.describe_load_balancers()["LoadBalancers"]
+    albs = retry_call(elb_client.describe_load_balancers)["LoadBalancers"]
     vpc_albs = [alb for alb in albs if alb.get("VpcId") == vpc_id]
 
     if not vpc_albs:
@@ -127,7 +131,9 @@ def verify_alb(elb_client: Any, vpc_id: str | None) -> None:
         ng(f"ALB スキームが想定外: {alb['Scheme']} (期待: internet-facing)")
 
     # ターゲットグループ・ヘルスチェック確認
-    tgs = elb_client.describe_target_groups(LoadBalancerArn=alb_arn)["TargetGroups"]
+    tgs = retry_call(elb_client.describe_target_groups, LoadBalancerArn=alb_arn)[
+        "TargetGroups"
+    ]
     if tgs:
         tg = tgs[0]
         ok(f"ターゲットグループが存在します: {tg['TargetGroupName']}")
@@ -146,11 +152,12 @@ def verify_ec2(ec2_client: Any, vpc_id: str | None) -> None:
         skip("VPC が未検出のためスキップ")
         return
 
-    reservations = ec2_client.describe_instances(
+    reservations = retry_call(
+        ec2_client.describe_instances,
         Filters=[
             {"Name": "vpc-id", "Values": [vpc_id]},
             {"Name": "instance-state-name", "Values": ["running", "stopped"]},
-        ]
+        ],
     )["Reservations"]
 
     instances = [i for r in reservations for i in r["Instances"]]
@@ -174,7 +181,7 @@ def verify_ec2(ec2_client: Any, vpc_id: str | None) -> None:
 
 def verify_rds(rds_client: Any) -> None:
     section("RDS")
-    clusters = rds_client.describe_db_instances()["DBInstances"]
+    clusters = retry_call(rds_client.describe_db_instances)["DBInstances"]
 
     if not clusters:
         ng("RDS インスタンスが見つかりません")
