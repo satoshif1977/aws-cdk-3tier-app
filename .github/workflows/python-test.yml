@@ -33,7 +33,7 @@ jobs:
         run: black --check scripts/
 
       - name: pytest
-        run: pytest scripts/test_verify_stack.py -v --tb=short --cov=scripts --cov-report=xml
+        run: pytest scripts/ -v --tb=short --cov=scripts --cov-report=xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
